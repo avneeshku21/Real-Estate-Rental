@@ -1,52 +1,61 @@
 import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import cors from "cors";
+
+// Import route files
 import userRouter from "./routes/user.routes.js";
 import authRouter from "./routes/auth.route.js";
 
+// Load environment variables
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3000; // Allow configurable port
+const PORT = process.env.PORT || 3000;
 
-// MongoDB Connection
-if (!process.env.MONGO) {
-  console.error("❌ MONGO connection string is missing in .env file!");
-  process.exit(1);
-}
+// ✅ MongoDB Connection Function
+const connectDB = async () => {
+  if (!process.env.MONGO) {
+    console.error("❌ MONGO connection string is missing in .env file!");
+    process.exit(1);
+  }
 
-mongoose
-  .connect(process.env.MONGO, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log("✅ Connected to MongoDB"))
-  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
+  try {
+    await mongoose.connect(process.env.MONGO);
+    console.log("✅ Connected to MongoDB");
+  } catch (error) {
+    console.error("❌ MongoDB Connection Error:", error.message);
+    process.exit(1);
+  }
+};
 
-// Middleware
-app.use(express.json());
+// ✅ Middleware
+app.use(cors({ origin: "http://localhost:5173" })); // Allow frontend requests
+app.use(express.json()); // Parse JSON request bodies
 
-// Routes
-app.get("/", (req, res) => {
-  res.send("Hello Namastey!");
-});
-
+// ✅ API Routes
 app.use("/api/user", userRouter);
 app.use("/api/auth", authRouter);
 
-// Global Error Handling Middleware
+// ✅ Test Route
+app.get("/", (req, res) => {
+  res.send("Hello Namastey! 🚀");
+});
+
+// ✅ Global Error Handling Middleware
 app.use((err, req, res, next) => {
-  console.error("❌ Error Middleware:", err); // Logs error to console
+  console.error("❌ Error Middleware:", err);
 
-  const statusCode = err.statusCode || 500;
-  const message = err.message || "Internal Server Error";
-
-  return res.status(statusCode).json({
+  res.status(err.statusCode || 500).json({
     success: false,
-    statusCode,
-    message,
-    ...(process.env.NODE_ENV === "development" && { stack: err.stack }), // Show stack trace in dev mode
+    message: err.message || "Internal Server Error",
+    ...(process.env.NODE_ENV === "development" && { stack: err.stack }), // Show stack trace in development mode
   });
 });
 
-// Start Server
-app.listen(port, () => {
-  console.log(`🚀 Server running on port ${port}`);
+// ✅ Start Server **after connecting to DB**
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+  });
 });
